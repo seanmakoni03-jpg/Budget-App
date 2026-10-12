@@ -1,0 +1,308 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitive Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation Blueprint: BankAccount
+    function isValidBankAccount(data) {
+      return data.userId is string &&
+             data.userId.size() >= 1 &&
+             data.userId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.institutionName is string &&
+             data.institutionName.size() >= 1 &&
+             data.institutionName.size() <= 80 &&
+             data.accountName is string &&
+             data.accountName.size() >= 1 &&
+             data.accountName.size() <= 80 &&
+             data.accountType is string &&
+             data.accountType.size() <= 20 &&
+             data.accountType in ['CHECKING', 'SAVINGS', 'CREDIT', 'INVESTMENT'] &&
+             data.accountMask is string &&
+             data.accountMask.size() >= 2 &&
+             data.accountMask.size() <= 8 &&
+             data.routingCode is string &&
+             data.routingCode.size() >= 1 &&
+             data.routingCode.size() <= 34 &&
+             data.balanceCents is int &&
+             data.balanceCents >= -100000000000 &&
+             data.balanceCents <= 100000000000 &&
+             data.currency is string &&
+             data.currency.size() == 3 &&
+             data.syncStatus is string &&
+             data.syncStatus.size() <= 30 &&
+             data.syncStatus in ['SYNCED', 'SYNCING', 'RECONNECT_REQUIRED'] &&
+             data.accentHex is string &&
+             data.accentHex.size() >= 4 &&
+             data.accentHex.size() <= 9 &&
+             data.createdAt is timestamp &&
+             data.createdAt <= request.time &&
+             data.updatedAt is timestamp &&
+             data.updatedAt <= request.time;
+    }
+
+    // Validation Blueprint: TransactionRecord
+    function isValidTransactionRecord(data) {
+      return data.userId is string &&
+             data.userId.size() >= 1 &&
+             data.userId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.accountId is string &&
+             data.accountId.size() >= 1 &&
+             data.accountId.size() <= 128 &&
+             data.accountName is string &&
+             data.accountName.size() >= 1 &&
+             data.accountName.size() <= 80 &&
+             data.merchantName is string &&
+             data.merchantName.size() >= 1 &&
+             data.merchantName.size() <= 100 &&
+             data.category is string &&
+             data.category.size() <= 30 &&
+             data.category in [
+               'HOUSING',
+               'GROCERIES',
+               'DINING',
+               'TRANSPORT',
+               'UTILITIES',
+               'SHOPPING',
+               'ENTERTAINMENT',
+               'HEALTH',
+               'INCOME',
+               'TRANSFER'
+             ] &&
+             data.amountCents is int &&
+             data.amountCents > 0 &&
+             data.amountCents <= 100000000000 &&
+             data.isExpense is bool &&
+             data.note is string &&
+             data.note.size() <= 300 &&
+             data.transactionDateIso is string &&
+             data.transactionDateIso.size() == 10 &&
+             data.isRecurring is bool &&
+             data.createdAt is timestamp &&
+             data.createdAt <= request.time &&
+             data.updatedAt is timestamp &&
+             data.updatedAt <= request.time;
+    }
+
+    // Validation Blueprint: BudgetEnvelope
+    function isValidBudgetEnvelope(data) {
+      return data.userId is string &&
+             data.userId.size() >= 1 &&
+             data.userId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.category is string &&
+             data.category.size() <= 30 &&
+             data.category in [
+               'HOUSING',
+               'GROCERIES',
+               'DINING',
+               'TRANSPORT',
+               'UTILITIES',
+               'SHOPPING',
+               'ENTERTAINMENT',
+               'HEALTH'
+             ] &&
+             data.monthlyLimitCents is int &&
+             data.monthlyLimitCents > 0 &&
+             data.monthlyLimitCents <= 100000000000 &&
+             data.alertThresholdPercent is int &&
+             data.alertThresholdPercent >= 10 &&
+             data.alertThresholdPercent <= 100 &&
+             data.rolloverEnabled is bool &&
+             data.createdAt is timestamp &&
+             data.createdAt <= request.time &&
+             data.updatedAt is timestamp &&
+             data.updatedAt <= request.time;
+    }
+
+    // User-scoped collections
+    match /users/{userId} {
+      // Bank Accounts Subcollection
+      match /bank_accounts/{accountId} {
+        allow get: if isOwner(userId) && isValidId(accountId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+                         isValidId(accountId) &&
+                         incoming().keys().hasAll([
+                           'userId',
+                           'institutionName',
+                           'accountName',
+                           'accountType',
+                           'accountMask',
+                           'routingCode',
+                           'balanceCents',
+                           'currency',
+                           'syncStatus',
+                           'accentHex',
+                           'createdAt',
+                           'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId',
+                           'institutionName',
+                           'accountName',
+                           'accountType',
+                           'accountMask',
+                           'routingCode',
+                           'balanceCents',
+                           'currency',
+                           'syncStatus',
+                           'accentHex',
+                           'createdAt',
+                           'updatedAt'
+                         ]) &&
+                         isValidBankAccount(incoming());
+
+        allow update: if isValidBankAccount(incoming()) &&
+                         isOwner(userId) &&
+                         isValidId(accountId) &&
+                         existing().userId == request.auth.uid &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'institutionName',
+                           'accountName',
+                           'accountType',
+                           'accountMask',
+                           'routingCode',
+                           'balanceCents',
+                           'currency',
+                           'syncStatus',
+                           'accentHex',
+                           'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(accountId) && existing().userId == request.auth.uid;
+      }
+
+      // Transactions Subcollection
+      match /transactions/{transactionId} {
+        allow get: if isOwner(userId) && isValidId(transactionId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+                         isValidId(transactionId) &&
+                         incoming().keys().hasAll([
+                           'userId',
+                           'accountId',
+                           'accountName',
+                           'merchantName',
+                           'category',
+                           'amountCents',
+                           'isExpense',
+                           'note',
+                           'transactionDateIso',
+                           'isRecurring',
+                           'createdAt',
+                           'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId',
+                           'accountId',
+                           'accountName',
+                           'merchantName',
+                           'category',
+                           'amountCents',
+                           'isExpense',
+                           'note',
+                           'transactionDateIso',
+                           'isRecurring',
+                           'createdAt',
+                           'updatedAt'
+                         ]) &&
+                         isValidTransactionRecord(incoming());
+
+        allow update: if isValidTransactionRecord(incoming()) &&
+                         isOwner(userId) &&
+                         isValidId(transactionId) &&
+                         existing().userId == request.auth.uid &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'accountId',
+                           'accountName',
+                           'merchantName',
+                           'category',
+                           'amountCents',
+                           'isExpense',
+                           'note',
+                           'transactionDateIso',
+                           'isRecurring',
+                           'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(transactionId) && existing().userId == request.auth.uid;
+      }
+
+      // Budgets Subcollection
+      match /budgets/{budgetId} {
+        allow get: if isOwner(userId) && isValidId(budgetId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+                         isValidId(budgetId) &&
+                         incoming().keys().hasAll([
+                           'userId',
+                           'category',
+                           'monthlyLimitCents',
+                           'alertThresholdPercent',
+                           'rolloverEnabled',
+                           'createdAt',
+                           'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId',
+                           'category',
+                           'monthlyLimitCents',
+                           'alertThresholdPercent',
+                           'rolloverEnabled',
+                           'createdAt',
+                           'updatedAt'
+                         ]) &&
+                         isValidBudgetEnvelope(incoming());
+
+        allow update: if isValidBudgetEnvelope(incoming()) &&
+                         isOwner(userId) &&
+                         isValidId(budgetId) &&
+                         existing().userId == request.auth.uid &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'category',
+                           'monthlyLimitCents',
+                           'alertThresholdPercent',
+                           'rolloverEnabled',
+                           'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(budgetId) && existing().userId == request.auth.uid;
+      }
+    }
+  }
+}

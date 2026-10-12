@@ -1,0 +1,236 @@
+{
+  "entities": {
+    "BankAccount": {
+      "title": "BankAccount",
+      "description": "A linked local bank account synced via Open Banking API, statement import, or manual connection.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the authenticated Google user who owns this bank account."
+        },
+        "institutionName": {
+          "type": "string",
+          "description": "Name of the financial institution (e.g., Chase, Revolut, Monzo, Wells Fargo)."
+        },
+        "accountName": {
+          "type": "string",
+          "description": "Display nickname of the account (e.g., Premier Checking, High-Yield Vault)."
+        },
+        "accountType": {
+          "type": "string",
+          "enum": ["CHECKING", "SAVINGS", "CREDIT", "INVESTMENT"],
+          "description": "Type of bank account."
+        },
+        "accountMask": {
+          "type": "string",
+          "description": "Last 4 digits of the account number."
+        },
+        "routingCode": {
+          "type": "string",
+          "description": "Local routing number, sort code, or IBAN prefix."
+        },
+        "balanceCents": {
+          "type": "integer",
+          "description": "Current balance in cents."
+        },
+        "currency": {
+          "type": "string",
+          "description": "ISO 4217 3-letter currency code (e.g., USD, GBP, EUR)."
+        },
+        "syncStatus": {
+          "type": "string",
+          "enum": ["SYNCED", "SYNCING", "RECONNECT_REQUIRED"],
+          "description": "Current Open Banking synchronization status."
+        },
+        "accentHex": {
+          "type": "string",
+          "description": "Brand hex color for the bank card."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation (must submit FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update (must submit FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "institutionName",
+        "accountName",
+        "accountType",
+        "accountMask",
+        "routingCode",
+        "balanceCents",
+        "currency",
+        "syncStatus",
+        "accentHex",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "TransactionRecord": {
+      "title": "TransactionRecord",
+      "description": "A financial transaction (expense, income, or transfer) linked to a user's bank account.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the authenticated Google user who owns this transaction."
+        },
+        "accountId": {
+          "type": "string",
+          "description": "Document ID of the associated BankAccount."
+        },
+        "accountName": {
+          "type": "string",
+          "description": "Denormalized account display name for fast ledger rendering."
+        },
+        "merchantName": {
+          "type": "string",
+          "description": "Merchant or counterparty name."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "HOUSING",
+            "GROCERIES",
+            "DINING",
+            "TRANSPORT",
+            "UTILITIES",
+            "SHOPPING",
+            "ENTERTAINMENT",
+            "HEALTH",
+            "INCOME",
+            "TRANSFER"
+          ],
+          "description": "Spending or income category."
+        },
+        "amountCents": {
+          "type": "integer",
+          "description": "Positive transaction amount in cents."
+        },
+        "isExpense": {
+          "type": "boolean",
+          "description": "True if this transaction reduces net spending power (expense), false if income."
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional user memo or bank reference description."
+        },
+        "transactionDateIso": {
+          "type": "string",
+          "description": "ISO-8601 date string (YYYY-MM-DD) when the transaction occurred."
+        },
+        "isRecurring": {
+          "type": "boolean",
+          "description": "True if detected or marked as a recurring bill or subscription."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation (must submit FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update (must submit FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "accountId",
+        "accountName",
+        "merchantName",
+        "category",
+        "amountCents",
+        "isExpense",
+        "note",
+        "transactionDateIso",
+        "isRecurring",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "BudgetEnvelope": {
+      "title": "BudgetEnvelope",
+      "description": "A monthly category budget target and alert threshold.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the authenticated Google user who owns this budget."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "HOUSING",
+            "GROCERIES",
+            "DINING",
+            "TRANSPORT",
+            "UTILITIES",
+            "SHOPPING",
+            "ENTERTAINMENT",
+            "HEALTH"
+          ],
+          "description": "Spending category governed by this budget envelope."
+        },
+        "monthlyLimitCents": {
+          "type": "integer",
+          "description": "Monthly spending cap in cents."
+        },
+        "alertThresholdPercent": {
+          "type": "integer",
+          "description": "Percentage (10 to 100) at which to trigger a budget warning."
+        },
+        "rolloverEnabled": {
+          "type": "boolean",
+          "description": "Whether unspent budget rolls over to the next month."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation (must submit FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update (must submit FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "category",
+        "monthlyLimitCents",
+        "alertThresholdPercent",
+        "rolloverEnabled",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/bank_accounts/{accountId}": {
+      "schema": {
+        "$ref": "#/entities/BankAccount"
+      },
+      "description": "Linked local bank accounts belonging to a specific user."
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": {
+        "$ref": "#/entities/TransactionRecord"
+      },
+      "description": "Transactions imported from bank accounts or logged manually by the user."
+    },
+    "/users/{userId}/budgets/{budgetId}": {
+      "schema": {
+        "$ref": "#/entities/BudgetEnvelope"
+      },
+      "description": "Monthly category spending budgets configured by the user."
+    }
+  }
+}

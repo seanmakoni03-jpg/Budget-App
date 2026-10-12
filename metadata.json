@@ -1,0 +1,6 @@
+{
+  "name": "VaultFlow",
+  "description": "Smart budgeting app that integrates with local bank accounts and tracks spending in real time.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
